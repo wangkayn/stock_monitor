@@ -1,0 +1,11 @@
+openai>=1.0.0
+python-telegram-bot>=20.0
+python-dotenv>=1.0.0
+schedule>=1.2.0
+requests>=2.31.0
+urllib3<2  # Required for LibreSSL compatibility
+praw>=7.7.0  # Reddit API
+feedparser>=6.0.10  # RSS feeds
+beautifulsoup4>=4.12.0  # Web scraping
+pytz>=2023.3  # Timezone handling
+aiohttp>=3.9.0  # Async HTTP requests
