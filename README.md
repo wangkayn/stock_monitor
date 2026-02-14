@@ -1,10 +1,20 @@
 # Stock Monitor
 
+[English](#english) | [中文](#中文)
+
+---
+
+## English
+
 AI-powered stock news monitoring with Telegram bot interface. Aggregates news from multiple free sources, analyzes with AI, and delivers summaries via Telegram.
 
-AI 驱动的股票新闻监控系统，通过 Telegram Bot 推送新闻摘要和突发新闻提醒。
+### Screenshots
 
-## Features
+| Summary List | Detailed Analysis | Breaking News |
+|:---:|:---:|:---:|
+| ![Summary](docs/images/summary.png) | ![Detail](docs/images/detail.png) | ![Breaking](docs/images/breaking.png) |
+
+### Features
 
 - **Multi-source news aggregation** - Yahoo Finance, Google News, Seeking Alpha, MarketWatch (free RSS), Finnhub API
 - **AI-powered analysis** - Works with any OpenAI-compatible API (DeepSeek, OpenAI, Groq, Ollama, etc.)
@@ -12,37 +22,31 @@ AI 驱动的股票新闻监控系统，通过 Telegram Bot 推送新闻摘要和
 - **Two-level summary** - Compact overview list + click for detailed analysis
 - **Daily auto-push** - Summary before US market open (7:30 AM ET)
 - **Breaking news alerts** - Hourly check for urgent high-impact news
-- **Bilingual** - Chinese or English output (`LANGUAGE=zh` or `LANGUAGE=en`)
+- **Bilingual output** - Chinese or English (`LANGUAGE=zh` or `LANGUAGE=en`)
 - **Caching** - `/summary` returns cached results instantly, zero extra API cost
 
-## Quick Start
+### Quick Start
 
 ```bash
-# Clone
-git clone https://github.com/your-username/stock-monitor.git
-cd stock-monitor
+git clone https://github.com/wangkayn/stock_monitor.git
+cd stock_monitor
 
-# Setup
 python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
 
-# Configure
 cp .env.example .env
 # Edit .env with your API keys (see Configuration below)
 
-# Create required directories
 mkdir -p data logs
-
-# Run
 python main.py
 ```
 
-## Configuration
+### Configuration
 
 Copy `.env.example` to `.env` and fill in:
 
-### Required
+#### Required
 
 | Variable | Description |
 |----------|-------------|
@@ -52,9 +56,9 @@ Copy `.env.example` to `.env` and fill in:
 | `AI_BASE_URL` | API endpoint (see AI Providers below) |
 | `AI_MODEL` | Model name |
 
-### AI Providers
+#### AI Providers
 
-Any OpenAI-compatible API works. Recommended options:
+Any OpenAI-compatible API works:
 
 | Provider | BASE_URL | MODEL | Cost |
 |----------|----------|-------|------|
@@ -63,7 +67,7 @@ Any OpenAI-compatible API works. Recommended options:
 | Groq | `https://api.groq.com/openai/v1` | `llama-3.1-70b-versatile` | Free tier |
 | Ollama | `http://localhost:11434/v1` | `llama3` | Free (local) |
 
-### Optional
+#### Optional
 
 | Variable | Default | Description |
 |----------|---------|-------------|
@@ -72,7 +76,7 @@ Any OpenAI-compatible API works. Recommended options:
 | `CHECK_INTERVAL_MINUTES` | `60` | News fetch interval |
 | `DAILY_SUMMARY_TIME` | `07:30` | Daily push time (ET) |
 
-## Bot Commands
+### Bot Commands
 
 | Command | Description |
 |---------|-------------|
@@ -82,7 +86,7 @@ Any OpenAI-compatible API works. Recommended options:
 | `/summary` | Get cached summary (click for details) |
 | `/help` | Show help |
 
-## How It Works
+### How It Works
 
 ```
 Startup → Initial fetch → Cache
@@ -94,54 +98,140 @@ Every 60 min → Fetch news (RSS+API) → AI analyze → Update cache → Check 
 /summary → Return cached result instantly (no API call)
 ```
 
-1. **News Sources**: Free RSS feeds (Yahoo Finance, Google News, Seeking Alpha, MarketWatch) + API sources (Finnhub)
-2. **AI Analysis**: Sends top 10 articles to AI for sentiment analysis, key developments, risk factors
-3. **Two-level Output**: Compact list with brief per ticker → click inline button for detailed analysis
-4. **Breaking News**: If latest news is urgent + high impact, sends alert immediately
+### News Sources
 
-## Running as a Service
+**Free (no API key needed):** Yahoo Finance RSS, Google News RSS, Seeking Alpha RSS, MarketWatch RSS
+
+**API (free tier):** Finnhub (60 calls/min), NewsAPI (100 req/day)
+
+### Running as a Service
 
 ```bash
-# Start in background
-./start.sh
-
-# Stop
-./stop.sh
-
-# View logs
-tail -f logs/stock_monitor.log
+./start.sh              # Start in background
+./stop.sh               # Stop
+tail -f logs/stock_monitor.log  # View logs
 ```
 
-## News Sources
-
-**Free (no API key needed):**
-- Yahoo Finance RSS
-- Google News RSS
-- Seeking Alpha RSS
-- MarketWatch RSS
-
-**API (free tier available):**
-- Finnhub (60 calls/min)
-- NewsAPI (100 req/day, often rate-limited)
-
-## Project Structure
+### Project Structure
 
 ```
-main.py                     # Entry point, scheduler, caching logic
+main.py                     # Entry point, scheduler, caching
 src/
-  ai_analyzer.py            # AI analysis (OpenAI-compatible API)
+  ai_analyzer.py            # AI analysis (OpenAI-compatible)
   news_fetcher.py           # News aggregation (RSS + API)
-  social_fetcher.py         # Social media fetcher (Reddit/Twitter)
-  stock_manager.py          # Watchlist management (data/stocks.json)
+  social_fetcher.py         # Social media (Reddit/Twitter)
+  stock_manager.py          # Watchlist management
   chat/
-    __init__.py              # Chat adapter factory
-    base.py                  # Abstract ChatAdapter base class
-    telegram_adapter.py      # Telegram implementation
+    base.py                 # ChatAdapter abstract base class
+    telegram_adapter.py     # Telegram implementation
   locale/
-    __init__.py              # i18n loader
-    zh.py                    # Chinese strings
-    en.py                    # English strings
+    zh.py                   # Chinese strings
+    en.py                   # English strings
 ```
+
+---
+
+## 中文
+
+AI 驱动的股票新闻监控系统，通过 Telegram Bot 推送新闻摘要和突发新闻提醒。
+
+### 截图展示
+
+| 摘要列表 | 详细分析 | 突发新闻 |
+|:---:|:---:|:---:|
+| ![摘要](docs/images/summary.png) | ![详情](docs/images/detail.png) | ![突发](docs/images/breaking.png) |
+
+### 功能特点
+
+- **多源新闻聚合** - Yahoo Finance、Google News、Seeking Alpha、MarketWatch (免费 RSS) + Finnhub API
+- **AI 智能分析** - 支持任意 OpenAI 兼容 API（DeepSeek、OpenAI、Groq、Ollama 等）
+- **Telegram 机器人** - `/add`、`/remove`、`/list`、`/summary` 命令 + 内联按钮交互
+- **两级摘要** - 紧凑概览列表 + 点击查看详细分析
+- **每日自动推送** - 美股开盘前自动推送摘要（7:30 AM ET）
+- **突发新闻提醒** - 每小时检测紧急高影响新闻
+- **双语输出** - 支持中文或英文输出（`LANGUAGE=zh` 或 `LANGUAGE=en`）
+- **缓存机制** - `/summary` 秒回缓存结果，零额外 API 消耗
+
+### 快速开始
+
+```bash
+git clone https://github.com/wangkayn/stock_monitor.git
+cd stock_monitor
+
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+
+cp .env.example .env
+# 编辑 .env 填入你的 API Key（参考下方配置说明）
+
+mkdir -p data logs
+python main.py
+```
+
+### 配置说明
+
+将 `.env.example` 复制为 `.env` 并填写：
+
+#### 必填项
+
+| 变量 | 说明 |
+|------|------|
+| `TELEGRAM_BOT_TOKEN` | 通过 [@BotFather](https://t.me/BotFather) 创建 |
+| `TELEGRAM_CHAT_ID` | 你的 Telegram 聊天 ID |
+| `AI_API_KEY` | AI 服务商的 API Key |
+| `AI_BASE_URL` | API 地址（见下方 AI 服务商列表） |
+| `AI_MODEL` | 模型名称 |
+
+#### AI 服务商
+
+支持任意 OpenAI 兼容 API：
+
+| 服务商 | BASE_URL | MODEL | 费用 |
+|--------|----------|-------|------|
+| **DeepSeek（推荐）** | `https://api.deepseek.com` | `deepseek-chat` | ~¥0.007/次 |
+| OpenAI | _(留空)_ | `gpt-4o-mini` | ~¥0.07/次 |
+| Groq | `https://api.groq.com/openai/v1` | `llama-3.1-70b-versatile` | 免费额度 |
+| Ollama | `http://localhost:11434/v1` | `llama3` | 免费（本地） |
+
+#### 可选项
+
+| 变量 | 默认值 | 说明 |
+|------|--------|------|
+| `LANGUAGE` | `zh` | 输出语言：`zh`（中文）或 `en`（英文） |
+| `FINNHUB_API_KEY` | - | [Finnhub](https://finnhub.io) API Key（免费，推荐） |
+| `CHECK_INTERVAL_MINUTES` | `60` | 新闻抓取间隔（分钟） |
+| `DAILY_SUMMARY_TIME` | `07:30` | 每日推送时间（美东时间） |
+
+### 机器人命令
+
+| 命令 | 说明 |
+|------|------|
+| `/add 代码` | 添加股票（如 `/add AAPL`） |
+| `/remove 代码` | 移除股票 |
+| `/list` | 查看关注列表（附 Yahoo Finance 链接） |
+| `/summary` | 获取缓存摘要（点击查看详情） |
+| `/help` | 显示帮助 |
+
+### 工作流程
+
+```
+启动 → 首次抓取 → 缓存
+          ↓
+每 60 分钟 → 抓取新闻 (RSS+API) → AI 分析 → 更新缓存 → 检测突发新闻
+          ↓
+每日 07:30 → 抓取 + 分析 → 自动推送到 Telegram
+          ↓
+/summary → 直接返回缓存结果（无 API 调用）
+```
+
+### 新闻源
+
+**免费（无需 API Key）：** Yahoo Finance RSS、Google News RSS、Seeking Alpha RSS、MarketWatch RSS
+
+**API（免费额度）：** Finnhub（60次/分钟）、NewsAPI（100次/天）
+
+---
 
 ## License
 
