@@ -60,13 +60,21 @@ class NewsFetcher:
         self.session.mount('https://', HTTPAdapter(max_retries=retry))
         self.session.mount('http://', HTTPAdapter(max_retries=retry))
 
+    # ── Helpers ──
+
+    def _fetch_rss(self, url: str, timeout: int = 20) -> feedparser.FeedParserDict:
+        """Fetch RSS feed with timeout via requests, then parse with feedparser."""
+        response = self.session.get(url, timeout=timeout)
+        response.raise_for_status()
+        return feedparser.parse(response.content)
+
     # ── Free RSS Sources (no API key needed) ──
 
     def fetch_yahoo_finance(self, ticker: str) -> List[NewsItem]:
         """Fetch from Yahoo Finance RSS"""
         try:
             url = f"https://feeds.finance.yahoo.com/rss/2.0/headline?s={ticker}&region=US&lang=en-US"
-            feed = feedparser.parse(url)
+            feed = self._fetch_rss(url)
 
             news_items = []
             for entry in feed.entries[:15]:
@@ -94,7 +102,7 @@ class NewsFetcher:
         """Fetch from Google News RSS"""
         try:
             url = f"https://news.google.com/rss/search?q={ticker}+stock&hl=en-US&gl=US&ceid=US:en"
-            feed = feedparser.parse(url)
+            feed = self._fetch_rss(url)
 
             news_items = []
             for entry in feed.entries[:15]:
@@ -130,7 +138,7 @@ class NewsFetcher:
         """Fetch from Seeking Alpha RSS"""
         try:
             url = f"https://seekingalpha.com/api/sa/combined/{ticker}.xml"
-            feed = feedparser.parse(url)
+            feed = self._fetch_rss(url)
 
             news_items = []
             for entry in feed.entries[:10]:
@@ -158,7 +166,7 @@ class NewsFetcher:
         """Fetch from MarketWatch RSS"""
         try:
             url = "https://feeds.marketwatch.com/marketwatch/topstories/"
-            feed = feedparser.parse(url)
+            feed = self._fetch_rss(url)
 
             ticker_upper = ticker.upper()
             news_items = []

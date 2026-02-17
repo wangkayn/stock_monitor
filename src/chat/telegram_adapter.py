@@ -220,8 +220,20 @@ class TelegramAdapter(ChatAdapter):
 
         await self.send_message(chat_id, msg, disable_web_page_preview=False)
 
+    async def _error_handler(self, update: object, context: ContextTypes.DEFAULT_TYPE):
+        """Handle errors in telegram handlers and polling."""
+        logger.error(f"Telegram error: {context.error}", exc_info=context.error)
+
     def setup(self):
-        self.app = Application.builder().token(self.token).build()
+        self.app = (
+            Application.builder()
+            .token(self.token)
+            .read_timeout(15)
+            .write_timeout(15)
+            .connect_timeout(10)
+            .pool_timeout(10)
+            .build()
+        )
 
         self.app.add_handler(CommandHandler("start", self.cmd_start))
         self.app.add_handler(CommandHandler("help", self.cmd_help))
@@ -230,6 +242,7 @@ class TelegramAdapter(ChatAdapter):
         self.app.add_handler(CommandHandler("list", self.cmd_list))
         self.app.add_handler(CommandHandler("summary", self.cmd_summary))
         self.app.add_handler(CallbackQueryHandler(self.button_callback))
+        self.app.add_error_handler(self._error_handler)
 
         logger.info("Telegram handlers setup complete")
 
@@ -249,8 +262,37 @@ class TelegramAdapter(ChatAdapter):
         await self.app.bot.set_chat_menu_button(menu_button=MenuButtonCommands())
         logger.info("Telegram commands registered")
 
-        await self.app.updater.start_polling(drop_pending_updates=True)
+        await self.app.updater.start_polling(
+            drop_pending_updates=True,
+            allowed_updates=["message", "callback_query"],
+            poll_interval=1.0,
+            timeout=30,
+            bootstrap_retries=-1,
+        )
         logger.info("Telegram adapter started")
+
+    async def restart_polling(self):
+        """Restart polling if it has stopped (e.g., due to network issues)."""
+        try:
+            if self.app and self.app.updater and self.app.updater.running:
+                logger.info("Polling is still running, no restart needed")
+                return
+            logger.warning("Polling is not running, restarting...")
+            if self.app and self.app.updater:
+                try:
+                    await self.app.updater.stop()
+                except Exception:
+                    pass
+                await self.app.updater.start_polling(
+                    drop_pending_updates=True,
+                    allowed_updates=["message", "callback_query"],
+                    poll_interval=1.0,
+                    timeout=30,
+                    bootstrap_retries=-1,
+                )
+                logger.info("Polling restarted successfully")
+        except Exception as e:
+            logger.error(f"Failed to restart polling: {e}")
 
     async def stop(self):
         if self.app:

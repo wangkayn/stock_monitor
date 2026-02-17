@@ -11,6 +11,7 @@ Supports any OpenAI-compatible provider:
 
 import logging
 from typing import List, Dict
+import httpx
 from openai import AsyncOpenAI
 from src.news_fetcher import NewsItem
 from src.social_fetcher import SocialPost
@@ -67,6 +68,7 @@ class AIAnalyzer:
         self.client = AsyncOpenAI(
             api_key=api_key,
             base_url=base_url,
+            timeout=httpx.Timeout(90.0, connect=10.0),
         )
         self.model = model
         logger.info(f"AI Analyzer initialized: model={model}, base_url={base_url or 'default (OpenAI)'}")

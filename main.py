@@ -10,6 +10,7 @@ Flow:
 
 import os
 import sys
+import signal
 import logging
 import asyncio
 import schedule
@@ -88,6 +89,18 @@ class StockMonitor:
         self.cached_summaries = {}
         self.last_fetch_time = None
         self.last_checked_news = {}  # Track last checked news per ticker
+        self.last_activity = datetime.now(self.timezone)  # Watchdog tracking
+        self._shutdown = False
+
+    async def periodic_fetch_with_timeout(self):
+        """Timeout-protected wrapper around periodic_fetch."""
+        timeout_secs = 600  # 10 minutes max for a full fetch cycle
+        try:
+            await asyncio.wait_for(self.periodic_fetch(), timeout=timeout_secs)
+        except asyncio.TimeoutError:
+            logger.error(f"periodic_fetch timed out after {timeout_secs}s, skipping this cycle")
+        except Exception as e:
+            logger.error(f"periodic_fetch error: {e}", exc_info=True)
 
     async def periodic_fetch(self):
         """Fetch news + AI analyze + cache for all tickers + check breaking news"""
@@ -150,6 +163,7 @@ class StockMonitor:
                     }
 
         self.last_fetch_time = datetime.now(self.timezone)
+        self.last_activity = datetime.now(self.timezone)
         logger.info(f"Periodic fetch complete. Cached {len(tickers)} tickers.")
 
     async def fetch_single_ticker(self, ticker: str):
@@ -185,7 +199,7 @@ class StockMonitor:
     async def push_daily_summary(self):
         """Fetch fresh data + push summary to chat (called at 07:30)"""
         logger.info("Daily summary: fetching fresh data...")
-        await self.periodic_fetch()
+        await self.periodic_fetch_with_timeout()
         await self.send_cached_summary()
 
     async def send_cached_summary(self):
@@ -202,9 +216,41 @@ class StockMonitor:
 
     async def run_scheduled_tasks(self):
         """Run scheduled tasks in async context"""
-        while True:
+        while not self._shutdown:
             schedule.run_pending()
             await asyncio.sleep(30)
+
+    async def watchdog(self):
+        """Monitor bot health - restart Telegram polling if stale."""
+        watchdog_interval = 300  # Check every 5 minutes
+        stale_threshold = 900   # 15 minutes with no activity = stale
+        while not self._shutdown:
+            await asyncio.sleep(watchdog_interval)
+            try:
+                elapsed = (datetime.now(self.timezone) - self.last_activity).total_seconds()
+                # Update activity on each watchdog tick (proves event loop is alive)
+                self.last_activity = datetime.now(self.timezone)
+
+                # Check if Telegram polling is still running
+                if hasattr(self.chat, 'app') and self.chat.app and self.chat.app.updater:
+                    if not self.chat.app.updater.running:
+                        logger.warning("Watchdog: Telegram polling stopped, restarting...")
+                        await self.chat.restart_polling()
+                        logger.info("Watchdog: Telegram polling restarted")
+
+                logger.debug(f"Watchdog OK: event loop alive, last_activity {elapsed:.0f}s ago")
+            except Exception as e:
+                logger.error(f"Watchdog error: {e}")
+
+    async def graceful_shutdown(self):
+        """Gracefully shutdown all components."""
+        logger.info("Initiating graceful shutdown...")
+        self._shutdown = True
+        try:
+            await self.chat.stop()
+        except Exception as e:
+            logger.error(f"Error stopping chat: {e}")
+        logger.info("Stock Monitor stopped.")
 
     async def start(self):
         """Start the monitoring service"""
@@ -214,6 +260,11 @@ class StockMonitor:
         if not self.chat_id:
             logger.error("TELEGRAM_CHAT_ID not set. Please update .env file.")
             return
+
+        # Setup signal handlers for graceful shutdown
+        loop = asyncio.get_running_loop()
+        for sig in (signal.SIGTERM, signal.SIGINT):
+            loop.add_signal_handler(sig, lambda: asyncio.create_task(self.graceful_shutdown()))
 
         # Validate AI connection
         if not await self.analyzer.validate_connection():
@@ -239,7 +290,7 @@ class StockMonitor:
         # Schedule periodic fetch every hour
         check_interval = int(os.getenv('CHECK_INTERVAL_MINUTES', '60'))
         schedule.every(check_interval).minutes.do(
-            lambda: asyncio.create_task(self.periodic_fetch())
+            lambda: asyncio.create_task(self.periodic_fetch_with_timeout())
         )
         logger.info(f"Scheduled periodic fetch every {check_interval} minutes")
 
@@ -251,7 +302,7 @@ class StockMonitor:
 
         # Run initial fetch to populate cache
         logger.info("Running initial fetch to populate cache...")
-        await self.periodic_fetch()
+        await self.periodic_fetch_with_timeout()
 
         stock_count = len(self.stock_manager.get_all_tickers())
         await self.chat.send_message(
@@ -259,13 +310,18 @@ class StockMonitor:
             t("startup_done", count=stock_count, interval=check_interval)
         )
 
-        # Start scheduled task loop
+        # Start scheduled task loop + watchdog concurrently
         logger.info("Stock Monitor is running. Press Ctrl+C to stop.")
         try:
-            await self.run_scheduled_tasks()
-        except KeyboardInterrupt:
-            logger.info("Shutting down...")
-            await self.chat.stop()
+            await asyncio.gather(
+                self.run_scheduled_tasks(),
+                self.watchdog(),
+            )
+        except asyncio.CancelledError:
+            logger.info("Tasks cancelled, shutting down...")
+        finally:
+            if not self._shutdown:
+                await self.graceful_shutdown()
 
 
 def main():
@@ -274,9 +330,8 @@ def main():
 
     try:
         asyncio.run(monitor.start())
-    except KeyboardInterrupt:
+    except (KeyboardInterrupt, SystemExit):
         logger.info("Shutting down Stock Monitor...")
-        sys.exit(0)
     except Exception as e:
         logger.error(f"Fatal error: {e}", exc_info=True)
         sys.exit(1)
